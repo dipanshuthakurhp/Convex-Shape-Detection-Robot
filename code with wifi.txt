@@ -1,0 +1,170 @@
+#include <WiFi.h>
+
+WiFiClient client;
+
+//for connection on wifi 
+String thingSpeakAddress= "3FNJ7N3BOHLQ3CCM";
+String tsfield1Name;
+String request_string;
+String apiKey="3FNJ7N3BOHLQ3CCM";
+
+//setting the values of keys for motor and sensor
+int trig_pin = 2;
+int echo_pin = 4;
+int trig2_pin = 12;
+int echo2_pin = 13;
+int enA = 15;
+int enB = 18;
+int in1 = 19;
+int in2 = 21;
+int in3 = 22;
+int in4 = 23;
+float duration_us,distance_cm;
+float thetha = 0;
+float x = 0;
+float y = 0;
+long int t2;
+int distance_btw_wheel = 10;
+float t1 = millis();
+void setup()
+{
+  
+  Serial.begin(9600);
+  WiFi.disconnect();
+  delay(3000);
+  Serial.println("START");
+  WiFi.begin("AndroidAP_9386","123456789");
+  while ((!(WiFi.status() == WL_CONNECTED))){
+    delay(300);
+    Serial.print("..");
+  }
+  Serial.println("Connected");
+  Serial.println("Your IP is");
+  Serial.println((WiFi.localIP()));
+
+  
+
+  pinMode(trig_pin,OUTPUT);
+  pinMode(echo_pin,INPUT);
+  pinMode(trig2_pin,OUTPUT);
+  pinMode(echo2_pin,INPUT);
+  pinMode(enA,OUTPUT);
+  pinMode(in1,OUTPUT);
+  pinMode(in2,OUTPUT);
+  pinMode(enB,OUTPUT);
+  pinMode(in3,OUTPUT);
+  pinMode(in4,OUTPUT);
+  digitalWrite(in1,LOW);
+  digitalWrite(in2,LOW);
+  digitalWrite(in3,LOW);
+  digitalWrite(in4,LOW);
+}
+
+void loop()
+{
+  float a = ultrasonic_sensor();
+  if(a>=7){
+    move_left();
+    thetha = thetha + angle();}
+  if(a<=5){
+    move_right();}
+  float b = ultrasonic_sensor2();
+  if(b<=5){
+    stop_running();
+    }
+  t2 = millis();   
+  float t = t2 - t1;     
+  x = x+(100)*(sin(thetha))*t;
+  y = y+ (100)*(cos(thetha))*t;
+ 
+  if (client.connect("api.thingspeak.com",80)) {
+    request_string = thingSpeakAddress;
+    request_string += "&field1=";
+    request_string += (x);
+    request_string += "&field2=";
+    request_string += (y);
+    client.print("POST /update HTTP/1.1\n");
+    client.print("Host: api.thingspeak.com\n");
+    client.print("Connection: close\n");
+    client.print("X-THINGSPEAKAPIKEY: "+apiKey+"\n");
+    client.print("Content-Type: application/x-www-form-urlencoded\n");
+    client.print("Content-Length: ");
+    client.print(request_string.length());
+    client.print("\n\n");
+    client.print(request_string);
+
+  }
+
+}
+
+//function for measuring the distance from the left sensor
+float ultrasonic_sensor(){
+  digitalWrite(trig_pin, HIGH);
+  delayMicroseconds(10);
+  digitalWrite(trig_pin, LOW);
+  duration_us = pulseIn(echo_pin, HIGH);
+  distance_cm = 0.017 * duration_us;
+  return distance_cm;
+  }
+  
+//function for measuring the distance from the front sensor
+float ultrasonic_sensor2(){
+  digitalWrite(trig2_pin, HIGH);
+  delayMicroseconds(10);
+  digitalWrite(trig2_pin, LOW);
+  duration_us = pulseIn(echo2_pin, HIGH);
+  distance_cm = 0.017 * duration_us;
+  return distance_cm;
+    }
+
+//function for moving the robot forward
+void move_forward(){
+  analogWrite(enA,100);
+  analogWrite(enB,100);
+  digitalWrite(in3,HIGH);
+  digitalWrite(in1,HIGH);
+  digitalWrite(in2,LOW);
+  digitalWrite(in4,LOW);
+  delay(2000);
+  digitalWrite(in3,LOW);
+  digitalWrite(in1,LOW);
+  }
+
+//function for moving the robot right 
+void move_right(){
+  analogWrite(enA,100);
+  analogWrite(enB,0);
+  
+  digitalWrite(in3,HIGH);
+  digitalWrite(in1,LOW);
+  digitalWrite(in2,LOW);
+  digitalWrite(in4,LOW);
+  delay(2000);
+
+  digitalWrite(in3,LOW);
+  }
+
+//function for moving the robot left   
+void move_left(){
+  analogWrite(enA,0);
+  analogWrite(enB,100);
+  
+  digitalWrite(in3,LOW);
+  digitalWrite(in1,HIGH);
+  digitalWrite(in2,LOW);
+  digitalWrite(in4,LOW);
+  delay(2000);
+
+  digitalWrite(in1,LOW);
+  }  
+
+//function for measuring the angle  
+float angle(){
+  return (100/distance_btw_wheel)*2;
+  }  
+
+//function for stop running if concave shape have been detected  
+void stop_running(){
+  analogWrite(enA,0);
+  analogWrite(enB,0);
+  delay(100000);}
